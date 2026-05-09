@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+<<<<<<< HEAD
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
@@ -1171,3 +1172,139 @@ document.getElementById('s-conf-thresh').addEventListener('input', function() {
 </script>
 </body>
 </html>
+=======
+
+<head>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Driver Drowsiness Detection</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+
+</head>
+
+<body>
+
+    <div class="container">
+
+        <div class="topbar">
+
+            <h1>AI DRIVER DROWSINESS DETECTION</h1>
+
+        </div>
+
+        <div class="dashboard">
+
+            <!-- LEFT -->
+            <div class="video-section">
+
+                <div class="video-card">
+
+                    <img src="{{ url_for('main.video_feed') }}" class="video-feed">
+
+                </div>
+
+            </div>
+
+            <!-- RIGHT -->
+            <div class="side-panel">
+
+                <div class="card status-card">
+
+                    <h2>Driver Status</h2>
+
+                    <div id="statusText" class="safe">
+                        SAFE
+                    </div>
+
+                </div>
+
+                <div class="card">
+
+                    <h2>System Features</h2>
+
+                    <ul>
+                        <li>Eye Tracking</li>
+                        <li>Yawning Detection</li>
+                        <li>Fatigue Monitoring</li>
+                        <li>Audio Alert</li>
+                        <li>CNN + LSTM</li>
+                    </ul>
+
+                </div>
+
+                <div class="card">
+
+                    <h2>Technologies</h2>
+
+                    <ul>
+                        <li>Python</li>
+                        <li>OpenCV</li>
+                        <li>MediaPipe</li>
+                        <li>TensorFlow</li>
+                        <li>Flask</li>
+                        <li>MobileNetV2</li>
+                        <li>LSTM</li>
+                    </ul>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+<script>
+
+async function updateStatus(){
+
+    try{
+
+        const response = await fetch('/status')
+
+        const data = await response.json()
+
+        const statusBox =
+            document.getElementById('statusText')
+
+        statusBox.innerText = data.status
+
+        if(data.status === 'SAFE'){
+
+            statusBox.className = 'safe'
+        }
+
+        else if(data.status === 'YAWNING'){
+
+            statusBox.className = 'warning'
+        }
+
+        else if(data.status === 'DROWSY'){
+
+            statusBox.className = 'danger'
+        }
+
+        else if(data.status === 'ALERT'){
+
+            statusBox.className = 'danger'
+        }
+
+    }
+
+    catch(error){
+
+        console.log(error)
+    }
+}
+
+setInterval(updateStatus, 1000)
+
+</script>
+</body>
+
+</html>
+>>>>>>> 58ed91b24af1ba0243f83fdd6abd449730c5e493

@@ -1,15 +1,24 @@
+<<<<<<< HEAD
 import time
 import sqlite3
 import datetime
 import os
 
 from flask import Blueprint, Response, jsonify, render_template
+=======
+from flask import Blueprint
+from flask import render_template
+from flask import Response
+from flask import jsonify
+
+>>>>>>> 58ed91b24af1ba0243f83fdd6abd449730c5e493
 from src.video_capture import VideoCamera
 
 main = Blueprint('main', __name__)
 
 camera = VideoCamera()
 
+<<<<<<< HEAD
 # ── SQLite setup ──────────────────────────────────────────────────────────────
 DB_PATH = os.path.join(os.path.dirname(__file__), '..', '..', 'sessions.db')
 
@@ -83,6 +92,27 @@ def generate_frames():
         frame = camera.get_frame()
         if frame is None:
             continue
+=======
+
+@main.route('/')
+def index():
+
+    return render_template('index.html')
+
+
+# ==========================================
+# VIDEO STREAM
+# ==========================================
+def generate_frames():
+
+    while True:
+
+        frame = camera.get_frame()
+
+        if frame is None:
+            continue
+
+>>>>>>> 58ed91b24af1ba0243f83fdd6abd449730c5e493
         yield (
             b'--frame\r\n'
             b'Content-Type: image/jpeg\r\n\r\n' +
@@ -93,12 +123,17 @@ def generate_frames():
 
 @main.route('/video_feed')
 def video_feed():
+<<<<<<< HEAD
+=======
+
+>>>>>>> 58ed91b24af1ba0243f83fdd6abd449730c5e493
     return Response(
         generate_frames(),
         mimetype='multipart/x-mixed-replace; boundary=frame'
     )
 
 
+<<<<<<< HEAD
 @main.route('/api/status')
 def api_status():
     detector = camera.detector
@@ -217,3 +252,49 @@ def status():
 def history():
     detector = camera.detector
     return jsonify({"history": detector.alert_history})
+=======
+# ==========================================
+# LIVE STATUS
+# ==========================================
+@main.route('/status')
+def status():
+
+    detector = camera.detector
+
+    if detector.frame_counter > 25:
+
+        return jsonify({
+            "status": "ALERT"
+        })
+
+    elif detector.yawn_counter > 5:
+
+        return jsonify({
+            "status": "YAWNING"
+        })
+
+    elif detector.frame_counter > 10:
+
+        return jsonify({
+            "status": "DROWSY"
+        })
+
+    else:
+
+        return jsonify({
+            "status": "SAFE"
+        })
+
+
+# ==========================================
+# ALERT HISTORY
+# ==========================================
+@main.route('/history')
+def history():
+
+    detector = camera.detector
+
+    return jsonify({
+        "history": detector.alert_history
+    })
+>>>>>>> 58ed91b24af1ba0243f83fdd6abd449730c5e493
