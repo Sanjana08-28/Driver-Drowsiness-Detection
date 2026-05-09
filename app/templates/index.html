@@ -1,0 +1,1173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>DriveSafe — Drowsiness Monitor</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
+<style>
+/* ── Reset & Tokens ─────────────────────────────────────── */
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+
+:root {
+  --bg:       #0d0f12;
+  --bg2:      #13161b;
+  --bg3:      #1a1e25;
+  --border:   #252930;
+  --text:     #e4e8f0;
+  --text2:    #8891a4;
+  --text3:    #555d6e;
+  --green:    #4ade80;
+  --amber:    #fbbf24;
+  --red:      #f87171;
+  --blue:     #60a5fa;
+  --accent:   #4ade80;
+  --font:     'DM Sans', sans-serif;
+  --mono:     'DM Mono', monospace;
+  --radius:   8px;
+}
+
+[data-theme="light"] {
+  --bg:       #f4f6f9;
+  --bg2:      #ffffff;
+  --bg3:      #eaecf0;
+  --border:   #d1d5db;
+  --text:     #111827;
+  --text2:    #4b5563;
+  --text3:    #9ca3af;
+  --green:    #16a34a;
+  --amber:    #d97706;
+  --red:      #dc2626;
+  --blue:     #2563eb;
+  --accent:   #16a34a;
+}
+
+body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; }
+
+/* ── Shell ──────────────────────────────────────────────── */
+.shell { display: flex; height: 100vh; overflow: hidden; }
+
+/* ── Sidebar ────────────────────────────────────────────── */
+.sidebar {
+  width: 220px; flex-shrink: 0;
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  padding: 0;
+}
+.logo {
+  padding: 20px 18px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.logo-mark {
+  display: flex; align-items: center; gap: 9px;
+  font-size: 15px; font-weight: 600; letter-spacing: -0.3px;
+}
+.logo-icon {
+  width: 28px; height: 28px; border-radius: 7px;
+  background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; color: #0d1a0f;
+}
+.logo-sub { font-size: 11px; color: var(--text3); margin-top: 4px; font-family: var(--mono); }
+
+nav { padding: 10px 0; flex: 1; }
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 18px; font-size: 13px; color: var(--text2);
+  cursor: pointer; border-left: 2px solid transparent;
+  transition: all 0.15s; user-select: none;
+}
+.nav-item:hover { background: var(--bg3); color: var(--text); }
+.nav-item.active { color: var(--text); background: var(--bg3); border-left-color: var(--accent); font-weight: 500; }
+.nav-item i { font-size: 16px; flex-shrink: 0; }
+
+.sidebar-bottom {
+  padding: 12px 0 16px;
+  border-top: 1px solid var(--border);
+}
+
+/* ── Status pill in sidebar ─────────────────────────────── */
+.status-pill {
+  margin: 0 12px 10px;
+  padding: 8px 12px; border-radius: var(--radius);
+  background: var(--bg3); border: 1px solid var(--border);
+  font-size: 11px; font-family: var(--mono);
+}
+.status-pill .pill-label { color: var(--text3); margin-bottom: 3px; }
+.status-pill .pill-val { font-size: 13px; font-weight: 500; color: var(--green); }
+.status-pill .pill-val.warn  { color: var(--amber); }
+.status-pill .pill-val.danger { color: var(--red); }
+
+/* ── Main ───────────────────────────────────────────────── */
+.main { flex: 1; overflow-y: auto; background: var(--bg); }
+.page { display: none; padding: 22px 24px; }
+.page.active { display: block; }
+.page-title { font-size: 16px; font-weight: 600; margin-bottom: 18px; letter-spacing: -0.2px; }
+
+/* ── Alert banner ───────────────────────────────────────── */
+.alert-banner {
+  display: none;
+  align-items: center; gap: 10px;
+  background: rgba(248,113,113,0.08);
+  border: 1px solid rgba(248,113,113,0.3);
+  border-radius: var(--radius); padding: 10px 14px;
+  margin-bottom: 16px; color: var(--red); font-size: 13px;
+  animation: fadeIn 0.3s ease;
+}
+.alert-banner.visible { display: flex; }
+@keyframes fadeIn { from { opacity:0; transform:translateY(-4px); } to { opacity:1; } }
+.alert-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--red); flex-shrink: 0;
+  animation: blink 0.8s infinite;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+/* ── Metrics row ────────────────────────────────────────── */
+.metrics { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 16px; }
+.metric {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 14px;
+}
+.metric-label { font-size: 11px; color: var(--text3); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.5px; }
+.metric-value { font-size: 22px; font-weight: 600; font-family: var(--mono); color: var(--text); }
+.metric-value.ok     { color: var(--green); }
+.metric-value.warn   { color: var(--amber); }
+.metric-value.danger { color: var(--red); }
+.metric-delta { font-size: 11px; color: var(--text3); margin-top: 3px; font-family: var(--mono); }
+
+/* ── Feed area ──────────────────────────────────────────── */
+.feed-area { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+.cam-box {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--radius); overflow: hidden;
+  display: flex; flex-direction: column;
+}
+.cam-header {
+  padding: 10px 14px; display: flex; align-items: center;
+  justify-content: space-between; border-bottom: 1px solid var(--border);
+  font-size: 12px; color: var(--text2);
+}
+.cam-live-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--green); margin-right: 6px;
+  animation: blink 1.5s infinite; display: inline-block;
+}
+.cam-live-dot.inactive { background: var(--text3); animation: none; }
+#live-feed {
+  width: 100%; flex: 1; object-fit: cover;
+  display: block; min-height: 220px; background: #000;
+}
+.cam-footer {
+  padding: 8px 14px; border-top: 1px solid var(--border);
+  font-size: 11px; color: var(--text3); font-family: var(--mono);
+  display: flex; gap: 16px;
+}
+
+/* ── Indicators ─────────────────────────────────────────── */
+.indicators { display: flex; flex-direction: column; gap: 8px; }
+.ind-card {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 11px 14px;
+}
+.ind-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.ind-name { font-size: 12px; color: var(--text2); }
+.ind-val  { font-size: 13px; font-weight: 600; font-family: var(--mono); }
+.ind-val.ok     { color: var(--green); }
+.ind-val.warn   { color: var(--amber); }
+.ind-val.danger { color: var(--red); }
+.bar-bg { height: 3px; background: var(--bg3); border-radius: 2px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 2px; transition: width 0.4s ease; }
+.bar-fill.green { background: var(--green); }
+.bar-fill.amber { background: var(--amber); }
+.bar-fill.red   { background: var(--red); }
+
+/* ── Session controls ───────────────────────────────────── */
+.session-controls { display: flex; gap: 8px; margin-bottom: 16px; }
+.btn {
+  padding: 8px 16px; font-size: 12px; border-radius: var(--radius);
+  border: 1px solid var(--border); cursor: pointer;
+  font-family: var(--font); font-weight: 500; transition: all 0.15s;
+  background: var(--bg2); color: var(--text);
+}
+.btn:hover { background: var(--bg3); }
+.btn-primary { background: var(--accent); color: #0d1a0f; border-color: var(--accent); }
+.btn-primary:hover { opacity: 0.85; }
+.btn-danger  { color: var(--red); border-color: rgba(248,113,113,0.3); }
+.btn-danger:hover { background: rgba(248,113,113,0.1); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── Reports ────────────────────────────────────────────── */
+.report-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+.report-card {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 14px;
+}
+.section-title { font-size: 12px; font-weight: 500; color: var(--text2); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+.chart-wrapper { position: relative; height: 160px; width: 100%; }
+
+/* ── Session history ────────────────────────────────────── */
+.session-list { display: flex; flex-direction: column; gap: 6px; }
+.session-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--radius); font-size: 12px;
+}
+.session-date { color: var(--text3); width: 130px; flex-shrink: 0; font-family: var(--mono); }
+.session-dur  { flex: 1; color: var(--text2); }
+.risk-badge {
+  padding: 2px 9px; border-radius: 4px; font-size: 11px; font-weight: 600;
+  font-family: var(--mono); margin-left: auto;
+}
+.risk-low  { background: rgba(74,222,128,0.12); color: var(--green); }
+.risk-med  { background: rgba(251,191,36,0.12); color: var(--amber); }
+.risk-high { background: rgba(248,113,113,0.12); color: var(--red); }
+
+/* ── Contacts ───────────────────────────────────────────── */
+.contacts-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+.contact-card {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 12px 14px;
+  display: flex; align-items: center; gap: 12px;
+}
+.avatar {
+  width: 36px; height: 36px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 600; flex-shrink: 0;
+}
+.av-blue  { background: rgba(96,165,250,0.15); color: var(--blue); }
+.av-green { background: rgba(74,222,128,0.15); color: var(--green); }
+.av-coral { background: rgba(248,113,113,0.15); color: var(--red); }
+.contact-info { flex: 1; }
+.contact-name  { font-size: 13px; font-weight: 500; }
+.contact-rel   { font-size: 11px; color: var(--text3); }
+.contact-phone { font-size: 12px; color: var(--text2); margin-top: 2px; }
+.btn-sm {
+  padding: 5px 10px; font-size: 11px; border: 1px solid var(--border);
+  border-radius: 5px; cursor: pointer; background: var(--bg3); color: var(--text2);
+  transition: all 0.1s;
+}
+.btn-sm:hover { color: var(--text); }
+.btn-sm-danger { color: var(--red); border-color: rgba(248,113,113,0.2); }
+
+.add-contact-form {
+  background: var(--bg2); border: 1px dashed var(--border);
+  border-radius: var(--radius); padding: 14px;
+}
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+.form-row input, .add-contact-form input {
+  width: 100%; padding: 7px 10px; font-size: 12px;
+  border: 1px solid var(--border); border-radius: 5px;
+  background: var(--bg3); color: var(--text); font-family: var(--font);
+}
+.form-row input::placeholder, .add-contact-form input::placeholder { color: var(--text3); }
+
+.alert-settings {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 14px; margin-top: 12px;
+}
+.toggle-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 0; border-bottom: 1px solid var(--border);
+  font-size: 12px; color: var(--text2);
+}
+.toggle-row:last-child { border-bottom: none; }
+.toggle {
+  width: 30px; height: 17px; border-radius: 9px;
+  background: var(--green); position: relative; cursor: pointer; flex-shrink: 0;
+  transition: background 0.2s;
+}
+.toggle::after {
+  content: ''; position: absolute; width: 13px; height: 13px;
+  border-radius: 50%; background: white; top: 2px; right: 2px;
+  transition: right 0.2s;
+}
+.toggle.off { background: var(--bg3); }
+.toggle.off::after { right: 15px; }
+
+/* ── Empty state ────────────────────────────────────────── */
+.empty-state { text-align: center; padding: 40px; color: var(--text3); font-size: 13px; }
+
+/* ── Sound option cards ─────────────────────────────────── */
+.sound-opt {
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 10px 12px;
+  cursor: pointer; transition: all 0.15s; user-select: none;
+}
+.sound-opt:hover { border-color: var(--text3); }
+.sound-opt.selected { border-color: var(--accent); background: rgba(74,222,128,0.07); }
+.sound-icon { font-size: 18px; margin-bottom: 4px; }
+.sound-name { font-size: 12px; font-weight: 600; color: var(--text); }
+.sound-desc { font-size: 11px; color: var(--text3); margin-top: 2px; }
+
+/* ── Scrollbar ──────────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- ── Sidebar ─────────────────────────────────────────────────── -->
+  <div class="sidebar">
+    <div class="logo">
+      <div class="logo-mark">
+        <div class="logo-icon"><i class="ti ti-eye"></i></div>
+        DriveSafe
+      </div>
+      <div class="logo-sub">Drowsiness Monitor</div>
+    </div>
+
+    <nav>
+      <div class="nav-item active" onclick="show('monitor', this)">
+        <i class="ti ti-device-desktop-analytics"></i> Live Monitor
+      </div>
+      <div class="nav-item" onclick="show('reports', this)">
+        <i class="ti ti-chart-bar"></i> Reports
+      </div>
+      <div class="nav-item" onclick="show('history', this)">
+        <i class="ti ti-history"></i> Session History
+      </div>
+      <div class="nav-item" onclick="show('contacts', this)">
+        <i class="ti ti-phone"></i> Emergency Contacts
+      </div>
+    </nav>
+
+    <div class="sidebar-bottom">
+      <div class="status-pill">
+        <div class="pill-label">Current status</div>
+        <div class="pill-val ok" id="sidebar-status">Alert</div>
+      </div>
+      <div class="nav-item" onclick="show('settings', this)">
+        <i class="ti ti-settings"></i> Settings
+      </div>
+      <div class="nav-item" onclick="toggleTheme()" id="theme-toggle">
+        <i class="ti ti-sun" id="theme-icon"></i> Light Mode
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Main ────────────────────────────────────────────────────── -->
+  <div class="main">
+
+    <!-- Live Monitor ------------------------------------------------->
+    <div id="page-monitor" class="page active">
+      <div class="page-title">Live Monitor</div>
+
+      <!-- Alert banner (shown when drowsy) -->
+      <div class="alert-banner" id="alert-banner">
+        <div class="alert-dot"></div>
+        <span id="alert-text"><strong>Alert:</strong> Drowsiness detected — please pull over safely.</span>
+      </div>
+
+      <!-- Session controls -->
+      <div class="session-controls">
+        <button class="btn btn-primary" id="btn-start" onclick="startSession()">
+          <i class="ti ti-player-play" style="font-size:13px"></i> Start Session
+        </button>
+        <button class="btn btn-danger" id="btn-end" onclick="endSession()" disabled>
+          <i class="ti ti-player-stop" style="font-size:13px"></i> End Session
+        </button>
+        <span id="session-timer" style="font-size:12px;color:var(--text3);font-family:var(--mono);align-self:center;margin-left:4px"></span>
+      </div>
+
+      <!-- Metric cards -->
+      <div class="metrics">
+        <div class="metric">
+          <div class="metric-label">EAR Score</div>
+          <div class="metric-value ok" id="m-ear">—</div>
+          <div class="metric-delta">Eye Aspect Ratio</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">MAR Score</div>
+          <div class="metric-value ok" id="m-mar">—</div>
+          <div class="metric-delta">Mouth / Yawn ratio</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Blink Rate</div>
+          <div class="metric-value ok" id="m-blink">—</div>
+          <div class="metric-delta">per minute</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Fatigue Risk</div>
+          <div class="metric-value ok" id="m-risk">—</div>
+          <div class="metric-delta" id="m-conf">CNN confidence</div>
+        </div>
+      </div>
+
+      <!-- Camera + Indicators -->
+      <div class="feed-area">
+        <div class="cam-box">
+          <div class="cam-header">
+            <span>
+              <span class="cam-live-dot inactive" id="cam-dot"></span>
+              Live Webcam Feed
+            </span>
+            <span style="font-family:var(--mono);font-size:11px;color:var(--text3)" id="cam-fps">—</span>
+          </div>
+          <!-- Live MJPEG stream from Flask /video_feed -->
+          <img id="live-feed" src="/video_feed" alt="Live drowsiness detection feed"
+               onerror="this.src='';this.style.background='#111';this.alt='Camera unavailable'"/>
+          <div class="cam-footer">
+            <span id="foot-status">Status: —</span>
+            <span id="foot-closure">Closure: —</span>
+            <span id="foot-yawn">Yawns: —</span>
+          </div>
+        </div>
+
+        <div class="indicators">
+          <div class="ind-card">
+            <div class="ind-row">
+              <span class="ind-name">Eye openness (EAR)</span>
+              <span class="ind-val ok" id="i-ear">—</span>
+            </div>
+            <div class="bar-bg"><div class="bar-fill green" id="bar-ear" style="width:0%"></div></div>
+          </div>
+          <div class="ind-card">
+            <div class="ind-row">
+              <span class="ind-name">Mouth / yawn (MAR)</span>
+              <span class="ind-val ok" id="i-mar">—</span>
+            </div>
+            <div class="bar-bg"><div class="bar-fill green" id="bar-mar" style="width:0%"></div></div>
+          </div>
+          <div class="ind-card">
+            <div class="ind-row">
+              <span class="ind-name">Eye closure duration</span>
+              <span class="ind-val ok" id="i-closure">—</span>
+            </div>
+            <div class="bar-bg"><div class="bar-fill green" id="bar-closure" style="width:0%"></div></div>
+          </div>
+          <div class="ind-card">
+            <div class="ind-row">
+              <span class="ind-name">CNN fatigue confidence</span>
+              <span class="ind-val ok" id="i-conf">—</span>
+            </div>
+            <div class="bar-bg"><div class="bar-fill green" id="bar-conf" style="width:0%"></div></div>
+          </div>
+          <div class="ind-card">
+            <div class="ind-row">
+              <span class="ind-name">Yawn count (session)</span>
+              <span class="ind-val ok" id="i-yawn">—</span>
+            </div>
+            <div class="bar-bg"><div class="bar-fill green" id="bar-yawn" style="width:0%"></div></div>
+          </div>
+          <div class="ind-card">
+            <div class="ind-row">
+              <span class="ind-name">Blink count</span>
+              <span class="ind-val ok" id="i-blink">—</span>
+            </div>
+            <div class="bar-bg"><div class="bar-fill green" id="bar-blink" style="width:0%"></div></div>
+          </div>
+          <div class="ind-card">
+            <div class="ind-row">
+              <span class="ind-name">Fatigue score</span>
+              <span class="ind-val ok" id="i-fatigue">—</span>
+            </div>
+            <div class="bar-bg"><div class="bar-fill green" id="bar-fatigue" style="width:0%"></div></div>
+          </div>
+          <div class="ind-card">
+            <div class="ind-row">
+              <span class="ind-name">Driver status</span>
+              <span class="ind-val ok" id="i-status">—</span>
+            </div>
+            <div class="bar-bg"><div class="bar-fill green" id="bar-status" style="width:0%"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Reports -------------------------------------------------------->
+    <div id="page-reports" class="page">
+      <div class="page-title">Drowsiness Reports</div>
+      <div class="report-grid">
+        <div class="report-card">
+          <div class="section-title">EAR over session</div>
+          <div class="chart-wrapper">
+            <canvas id="earChart" role="img" aria-label="EAR values over time"></canvas>
+          </div>
+        </div>
+        <div class="report-card">
+          <div class="section-title">Fatigue events</div>
+          <div class="chart-wrapper">
+            <canvas id="eventsChart" role="img" aria-label="Fatigue events per session"></canvas>
+          </div>
+        </div>
+        <div class="report-card">
+          <div class="section-title">Risk distribution</div>
+          <div class="chart-wrapper">
+            <canvas id="riskChart" role="img" aria-label="Risk level pie chart"></canvas>
+          </div>
+        </div>
+        <div class="report-card">
+          <div class="section-title">Blink rate over time</div>
+          <div class="chart-wrapper">
+            <canvas id="blinkChart" role="img" aria-label="Blink rate over session"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Session History ------------------------------------------------->
+    <div id="page-history" class="page">
+      <div class="page-title">Session History</div>
+      <div class="session-list" id="history-list">
+        <div class="empty-state">No sessions recorded yet. Start a session to begin logging.</div>
+      </div>
+    </div>
+
+    <!-- Emergency Contacts --------------------------------------------->
+    <div id="page-contacts" class="page">
+      <div class="page-title">Emergency Contacts</div>
+      <div class="section-title">Contacts — notified on high-risk alert</div>
+      <div class="contacts-list">
+        <div class="contact-card">
+          <div class="avatar av-blue">SK</div>
+          <div class="contact-info">
+            <div class="contact-name">Sita Kumar</div>
+            <div class="contact-rel">Mother</div>
+            <div class="contact-phone"><i class="ti ti-phone" style="font-size:11px"></i> +91 98765 43210</div>
+          </div>
+          <button class="btn-sm">Edit</button>
+          <button class="btn-sm btn-sm-danger">Remove</button>
+        </div>
+        <div class="contact-card">
+          <div class="avatar av-green">RP</div>
+          <div class="contact-info">
+            <div class="contact-name">Rahul Pillai</div>
+            <div class="contact-rel">Friend</div>
+            <div class="contact-phone"><i class="ti ti-phone" style="font-size:11px"></i> +91 90001 12345</div>
+          </div>
+          <button class="btn-sm">Edit</button>
+          <button class="btn-sm btn-sm-danger">Remove</button>
+        </div>
+        <div class="contact-card">
+          <div class="avatar av-coral">VD</div>
+          <div class="contact-info">
+            <div class="contact-name">Dr. Venu D.</div>
+            <div class="contact-rel">Emergency physician</div>
+            <div class="contact-phone"><i class="ti ti-phone" style="font-size:11px"></i> 108</div>
+          </div>
+          <button class="btn-sm">Edit</button>
+          <button class="btn-sm btn-sm-danger">Remove</button>
+        </div>
+      </div>
+      <div class="add-contact-form">
+        <div class="section-title">Add new contact</div>
+        <div class="form-row">
+          <input placeholder="Full name" id="c-name"/>
+          <input placeholder="Relationship" id="c-rel"/>
+        </div>
+        <div class="form-row">
+          <input placeholder="Phone number" id="c-phone"/>
+          <input placeholder="Email (optional)" id="c-email"/>
+        </div>
+        <button class="btn btn-primary" style="margin-top:4px" onclick="addContact()">+ Add contact</button>
+      </div>
+      <div class="alert-settings">
+        <div class="section-title">Alert settings</div>
+        <div class="toggle-row">
+          <span>SMS alert on drowsiness detected</span>
+          <div class="toggle" id="t-sms" onclick="toggleEl(this)"></div>
+        </div>
+        <div class="toggle-row">
+          <span>Notify contacts on High risk only</span>
+          <div class="toggle" id="t-high" onclick="toggleEl(this)"></div>
+        </div>
+        <div class="toggle-row">
+          <span>Auto-call emergency contact</span>
+          <div class="toggle off" id="t-call" onclick="toggleEl(this)"></div>
+        </div>
+        <div class="toggle-row">
+          <span>Sound alarm in browser</span>
+          <div class="toggle" id="t-sound" onclick="toggleEl(this)"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings -------------------------------------------------------->
+    <div id="page-settings" class="page">
+      <div class="page-title">Settings</div>
+
+      <div style="display:flex;flex-direction:column;gap:12px;max-width:480px">
+
+        <!-- Detection thresholds -->
+        <div class="report-card">
+          <div class="section-title">Detection thresholds</div>
+          <div style="display:flex;flex-direction:column;gap:12px;font-size:13px">
+            <label style="display:flex;justify-content:space-between;align-items:center;color:var(--text2)">
+              EAR drowsy threshold
+              <input type="range" min="15" max="35" value="25" id="s-ear-thresh"
+                     style="width:120px;accent-color:var(--accent)"/>
+              <span id="s-ear-val" style="width:36px;text-align:right;font-family:var(--mono);color:var(--text)">0.25</span>
+            </label>
+            <label style="display:flex;justify-content:space-between;align-items:center;color:var(--text2)">
+              Closure alert (seconds)
+              <input type="range" min="1" max="5" value="2" id="s-close-thresh"
+                     style="width:120px;accent-color:var(--accent)"/>
+              <span id="s-close-val" style="width:36px;text-align:right;font-family:var(--mono);color:var(--text)">2 s</span>
+            </label>
+            <label style="display:flex;justify-content:space-between;align-items:center;color:var(--text2)">
+              CNN confidence threshold
+              <input type="range" min="40" max="90" value="70" id="s-conf-thresh"
+                     style="width:120px;accent-color:var(--accent)"/>
+              <span id="s-conf-val" style="width:36px;text-align:right;font-family:var(--mono);color:var(--text)">70%</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Alert sound -->
+        <div class="report-card">
+          <div class="section-title">Alert sound</div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px" id="sound-options">
+              <div class="sound-opt selected" data-sound="beep" onclick="selectSound(this)">
+                <div class="sound-icon">🔔</div>
+                <div class="sound-name">Beep</div>
+                <div class="sound-desc">Short sharp beep</div>
+              </div>
+              <div class="sound-opt" data-sound="siren" onclick="selectSound(this)">
+                <div class="sound-icon">🚨</div>
+                <div class="sound-name">Siren</div>
+                <div class="sound-desc">Rising siren tone</div>
+              </div>
+              <div class="sound-opt" data-sound="pulse" onclick="selectSound(this)">
+                <div class="sound-icon">💓</div>
+                <div class="sound-name">Pulse</div>
+                <div class="sound-desc">Repeating pulse</div>
+              </div>
+              <div class="sound-opt" data-sound="chime" onclick="selectSound(this)">
+                <div class="sound-icon">🎵</div>
+                <div class="sound-name">Chime</div>
+                <div class="sound-desc">Gentle chime</div>
+              </div>
+              <div class="sound-opt" data-sound="buzz" onclick="selectSound(this)">
+                <div class="sound-icon">📳</div>
+                <div class="sound-name">Buzz</div>
+                <div class="sound-desc">Low buzz tone</div>
+              </div>
+              <div class="sound-opt" data-sound="none" onclick="selectSound(this)">
+                <div class="sound-icon">🔇</div>
+                <div class="sound-name">Silent</div>
+                <div class="sound-desc">No sound</div>
+              </div>
+            </div>
+
+            <div style="display:flex;align-items:center;gap:10px;margin-top:4px">
+              <label style="font-size:12px;color:var(--text2)">Volume</label>
+              <input type="range" min="0" max="100" value="70" id="s-volume"
+                     style="flex:1;accent-color:var(--accent)"/>
+              <span id="s-volume-val" style="font-family:var(--mono);font-size:12px;color:var(--text);width:36px;text-align:right">70%</span>
+            </div>
+
+            <button class="btn" style="align-self:flex-start;margin-top:2px" onclick="previewSound()">▶ Preview</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /shell -->
+
+<!-- Charts.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+/* ================================================================
+   THEME
+================================================================ */
+function toggleTheme() {
+  const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+  document.documentElement.setAttribute('data-theme', isDark ? 'light' : 'dark');
+  const icon  = document.getElementById('theme-icon');
+  const label = document.getElementById('theme-toggle');
+  if (isDark) {
+    icon.className  = 'ti ti-moon';
+    label.childNodes[2].textContent = ' Dark Mode';
+  } else {
+    icon.className  = 'ti ti-sun';
+    label.childNodes[2].textContent = ' Light Mode';
+  }
+  localStorage.setItem('theme', isDark ? 'light' : 'dark');
+}
+
+// restore saved theme on load
+(function() {
+  const saved = localStorage.getItem('theme');
+  if (saved === 'light') {
+    document.documentElement.setAttribute('data-theme', 'light');
+    document.addEventListener('DOMContentLoaded', () => {
+      const icon  = document.getElementById('theme-icon');
+      const label = document.getElementById('theme-toggle');
+      if (icon)  icon.className = 'ti ti-moon';
+      if (label) label.childNodes[2].textContent = ' Dark Mode';
+    });
+  }
+})();
+
+/* ================================================================
+   NAVIGATION
+================================================================ */
+function show(page, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  if (el) el.classList.add('active');
+  if (page === 'reports') setTimeout(initCharts, 80);
+  if (page === 'history') { loadHistory(); startHistoryRefresh(); } else { stopHistoryRefresh(); }
+}
+
+/* ================================================================
+   SESSION
+================================================================ */
+let sessionActive = false;
+let sessionStart  = null;
+let timerInterval = null;
+
+async function startSession() {
+  const res  = await fetch('/api/session/start', { method: 'POST' });
+  const data = await res.json();
+  sessionActive = true;
+  sessionStart  = Date.now();
+  document.getElementById('btn-start').disabled = true;
+  document.getElementById('btn-end').disabled   = false;
+  // activate live dot
+  document.getElementById('cam-dot').classList.remove('inactive');
+  // start timer display
+  timerInterval = setInterval(() => {
+    const s = Math.floor((Date.now() - sessionStart) / 1000);
+    const m = Math.floor(s / 60);
+    document.getElementById('session-timer').textContent =
+      `Session: ${String(m).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+  }, 1000);
+  console.log('Session started:', data.session_id);
+}
+
+async function endSession() {
+  const res  = await fetch('/api/session/end', { method: 'POST' });
+  const data = await res.json();
+  sessionActive = false;
+  clearInterval(timerInterval);
+  document.getElementById('btn-start').disabled = false;
+  document.getElementById('btn-end').disabled   = true;
+  document.getElementById('session-timer').textContent = '';
+  document.getElementById('cam-dot').classList.add('inactive');
+  alert(`Session ended.\nDuration: ${Math.floor(data.duration_s/60)} min\nAlerts: ${data.alerts}\nRisk: ${data.risk}`);
+}
+
+/* ================================================================
+   STATUS POLLING  (/api/status  every 500 ms)
+================================================================ */
+const EAR_THRESH = 0.25;
+const CONF_THRESH = 70;
+
+function colorClass(val, warn, danger) {
+  if (val >= danger) return 'danger';
+  if (val >= warn)   return 'warn';
+  return 'ok';
+}
+
+function setEl(id, text, cls) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = text;
+  el.className = el.className.replace(/\b(ok|warn|danger)\b/g, '') + ' ' + cls;
+}
+
+function setBar(id, pct, cls) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.style.width = Math.min(100, pct) + '%';
+  el.className = 'bar-fill ' + cls;
+}
+
+let lastFrameTs = Date.now();
+
+async function pollStatus() {
+  try {
+    const res  = await fetch('/api/status');
+    const d    = await res.json();
+
+    // ── colour helpers ──────────────────────────────────────
+    const earPct  = Math.max(0, Math.min(100, (d.ear / 0.45) * 100));
+    const marPct  = Math.min(100, (d.mar / 0.8) * 100);
+    const closPct = Math.min(100, (d.closure_dur / 4.0) * 100);
+    const confPct = d.fatigue_conf;
+    const yawnPct = Math.min(100, (d.yawn_count / 10) * 100);
+
+    const earCls  = d.ear < 0.2 ? 'danger' : d.ear < 0.27 ? 'warn' : 'ok';
+    const marCls  = d.mar > 0.7 ? 'danger' : d.mar > 0.5  ? 'warn' : 'ok';
+    const closCls = d.closure_dur > 2.5 ? 'danger' : d.closure_dur > 1.5 ? 'warn' : 'ok';
+    const confCls = d.fatigue_conf > 75 ? 'danger' : d.fatigue_conf > 50 ? 'warn' : 'ok';
+
+    const riskCls = d.status === 'Very Drowsy' ? 'danger'
+                  : d.status === 'Drowsy'       ? 'warn' : 'ok';
+
+    // ── metric cards ────────────────────────────────────────
+    setEl('m-ear',   d.ear.toFixed(2),              earCls);
+    setEl('m-mar',   d.mar.toFixed(2),              marCls);
+    setEl('m-blink', (d.blink_rate || 0).toFixed(1) + '/m', 'ok');
+    setEl('m-risk',  d.status,                      riskCls);
+    document.getElementById('m-conf').textContent = `CNN: ${d.fatigue_conf}%`;
+
+    // ── indicator bars ───────────────────────────────────────
+    setEl('i-ear',     d.ear.toFixed(2),             earCls);
+    setEl('i-mar',     d.mar.toFixed(2),             marCls);
+    setEl('i-closure', d.closure_dur.toFixed(1)+'s', closCls);
+    setEl('i-conf',    d.fatigue_conf+'%',            confCls);
+    setEl('i-yawn',    d.yawn_count,                 d.yawn_count > 5 ? 'warn' : 'ok');
+
+    setBar('bar-ear',     100 - earPct,  earCls  === 'ok' ? 'green' : earCls === 'warn' ? 'amber' : 'red');
+    setBar('bar-mar',     marPct,        marCls  === 'ok' ? 'green' : 'amber');
+    setBar('bar-closure', closPct,       closCls === 'ok' ? 'green' : closCls === 'warn' ? 'amber' : 'red');
+    setBar('bar-conf',    confPct,       confCls === 'ok' ? 'green' : confCls === 'warn' ? 'amber' : 'red');
+    setBar('bar-yawn',    yawnPct,       d.yawn_count > 5 ? 'amber' : 'green');
+
+    const blinkPct   = Math.min(100, (d.blink_count / 50) * 100);
+    const fatiguePct = d.fatigue_conf;
+    const statusPct  = d.status === 'Very Drowsy' ? 100 : d.status === 'Drowsy' ? 55 : 10;
+    const statusCls  = d.status === 'Very Drowsy' ? 'danger' : d.status === 'Drowsy' ? 'warn' : 'ok';
+
+    setEl('i-blink',   d.blink_count,  'ok');
+    setEl('i-fatigue', d.fatigue_conf + '%', confCls);
+    setEl('i-status',  d.status,       statusCls);
+
+    setBar('bar-blink',   blinkPct,   'green');
+    setBar('bar-fatigue', fatiguePct, confCls === 'ok' ? 'green' : confCls === 'warn' ? 'amber' : 'red');
+    setBar('bar-status',  statusPct,  statusCls === 'ok' ? 'green' : statusCls === 'warn' ? 'amber' : 'red');
+
+    // ── sidebar status ───────────────────────────────────────
+    setEl('sidebar-status', d.status, riskCls);
+
+    // ── alert banner ─────────────────────────────────────────
+    const banner = document.getElementById('alert-banner');
+    if (d.alert) {
+      banner.classList.add('visible');
+      document.getElementById('alert-text').innerHTML =
+        `<strong>Alert:</strong> ${
+          d.closure_dur > 2 ? `Eyes closed for ${d.closure_dur.toFixed(1)}s` : 'High fatigue confidence'
+        } — please take a break.`;
+      // play browser alarm if toggle on
+      if (document.getElementById('t-sound') && !document.getElementById('t-sound').classList.contains('off')) {
+        playAlarm();
+      }
+    } else {
+      banner.classList.remove('visible');
+    }
+
+    // ── cam footer ───────────────────────────────────────────
+    document.getElementById('foot-status').textContent  = 'Status: ' + d.status;
+    document.getElementById('foot-closure').textContent = 'Closure: ' + d.closure_dur.toFixed(1) + 's';
+    document.getElementById('foot-yawn').textContent    = 'Yawns: ' + d.yawn_count;
+
+    lastFrameTs = Date.now();
+  } catch(e) {
+    // server not responding — degrade gracefully
+    console.warn('Status poll failed:', e.message);
+  }
+}
+
+setInterval(pollStatus, 500);
+
+/* ================================================================
+   BROWSER ALARM
+================================================================ */
+let alarmPlaying = false;
+let alarmTimeout = null;
+
+function playAlarm() {
+  if (alarmPlaying) return;
+  alarmPlaying = true;
+  // Use AudioContext to generate a short beep (no file needed)
+  try {
+    const ctx  = new (window.AudioContext || window.webkitAudioContext)();
+    const osc  = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.type = 'square'; osc.frequency.value = 880;
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
+    osc.start(); osc.stop(ctx.currentTime + 0.8);
+  } catch(e) {}
+  alarmTimeout = setTimeout(() => { alarmPlaying = false; }, 3000);
+}
+
+/* ================================================================
+   HISTORY
+================================================================ */
+let historyRefreshInterval = null;
+
+function startHistoryRefresh() {
+  stopHistoryRefresh();
+  historyRefreshInterval = setInterval(loadHistory, 5000);
+}
+
+function stopHistoryRefresh() {
+  if (historyRefreshInterval) { clearInterval(historyRefreshInterval); historyRefreshInterval = null; }
+}
+
+async function loadHistory() {
+  try {
+    const [sessRes, evtRes] = await Promise.all([
+      fetch('/api/sessions'),
+      fetch('/api/history')
+    ]);
+    const sessions = await sessRes.json();
+    const events   = await evtRes.json();
+    const list = document.getElementById('history-list');
+
+    let html = '';
+
+    // ── Recent detection events ──────────────────────────────
+    if (events.length) {
+      html += `<div class="section-title" style="margin-bottom:8px;margin-top:4px">Recent Detections</div>`;
+      html += events.slice(0, 20).map(e => {
+        const ts  = new Date(e.ts);
+        const cls = e.status === 'Very Drowsy' ? 'danger' : e.status === 'Drowsy' ? 'warn' : 'ok';
+        const color = cls === 'danger' ? 'var(--red)' : cls === 'warn' ? 'var(--amber)' : 'var(--green)';
+        return `
+          <div class="session-row" style="gap:8px">
+            <span class="session-date">${ts.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}</span>
+            <span style="font-family:var(--mono);font-size:11px;color:var(--text3)">EAR ${e.ear?.toFixed(2)||'—'}  MAR ${e.mar?.toFixed(2)||'—'}</span>
+            <span style="margin-left:auto;font-size:12px;font-weight:600;color:${color}">${e.status}</span>
+          </div>`;
+      }).join('');
+    }
+
+    // ── Past sessions ────────────────────────────────────────
+    if (sessions.length) {
+      html += `<div class="section-title" style="margin-bottom:8px;margin-top:16px">Past Sessions</div>`;
+      html += sessions.map(r => {
+        const start = new Date(r.started_at);
+        const dur   = r.duration_s ? Math.floor(r.duration_s/60) + ' min' : 'ongoing';
+        const risk  = r.risk || 'Low';
+        const cls   = risk === 'High' ? 'risk-high' : risk === 'Medium' ? 'risk-med' : 'risk-low';
+        return `
+          <div class="session-row">
+            <span class="session-date">${start.toLocaleDateString('en-IN',{month:'short',day:'numeric',year:'numeric'})} ${start.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})}</span>
+            <span class="session-dur">${dur} drive</span>
+            <span>${r.alerts || 0} alert${r.alerts===1?'':'s'}</span>
+            <span class="risk-badge ${cls}">${risk}</span>
+          </div>`;
+      }).join('');
+    }
+
+    list.innerHTML = html || '<div class="empty-state">No data yet. Start a session to begin logging.</div>';
+  } catch(e) {
+    document.getElementById('history-list').innerHTML =
+      '<div class="empty-state">Could not load history.</div>';
+  }
+}
+
+/* ================================================================
+   CHARTS  (built from live /api/history data)
+================================================================ */
+let chartsInit = false;
+let earChartObj, eventsChartObj, riskChartObj, blinkChartObj;
+
+async function initCharts() {
+  if (chartsInit) return;
+  chartsInit = true;
+
+  // fetch recent event history
+  let events = [];
+  try {
+    const res = await fetch('/api/history');
+    events = await res.json();
+  } catch(e) {}
+
+  const chartDefaults = {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { ticks: { color: '#555d6e', font: { size: 10 } }, grid: { color: '#1a1e25' } },
+      y: { ticks: { color: '#555d6e', font: { size: 10 } }, grid: { color: '#1a1e25' } }
+    }
+  };
+
+  // EAR over session (most recent 20 events)
+  const earData  = events.slice(0, 20).reverse();
+  const earLabels = earData.map((_, i) => i + 'x');
+  earChartObj = new Chart(document.getElementById('earChart'), {
+    type: 'line',
+    data: { labels: earLabels, datasets: [{
+      label: 'EAR', data: earData.map(e => e.ear),
+      borderColor: '#60a5fa', backgroundColor: 'rgba(96,165,250,0.07)',
+      tension: 0.4, pointRadius: 2, fill: true, borderWidth: 1.5
+    }]},
+    options: { ...chartDefaults, scales: { ...chartDefaults.scales, y: { ...chartDefaults.scales.y, min: 0.1, max: 0.45 }}}
+  });
+
+  // Fatigue events per session (from sessions)
+  let sessions = [];
+  try { sessions = await (await fetch('/api/sessions')).json(); } catch(e) {}
+  const sLabels = sessions.slice(0,5).reverse().map(s => {
+    const d = new Date(s.started_at);
+    return d.toLocaleDateString('en-IN', {month:'short', day:'numeric'});
+  });
+  eventsChartObj = new Chart(document.getElementById('eventsChart'), {
+    type: 'bar',
+    data: { labels: sLabels.length ? sLabels : ['—'], datasets: [{
+      label: 'Alerts', data: sessions.slice(0,5).reverse().map(s => s.alerts || 0),
+      backgroundColor: '#f87171', borderRadius: 4
+    }]},
+    options: chartDefaults
+  });
+
+  // Risk distribution doughnut
+  const low  = sessions.filter(s => s.risk==='Low').length;
+  const med  = sessions.filter(s => s.risk==='Medium').length;
+  const high = sessions.filter(s => s.risk==='High').length;
+  riskChartObj = new Chart(document.getElementById('riskChart'), {
+    type: 'doughnut',
+    data: { labels: ['Low','Medium','High'], datasets: [{
+      data: [low||1, med||0, high||0],
+      backgroundColor: ['#4ade80','#fbbf24','#f87171'], borderWidth: 0
+    }]},
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '65%',
+      plugins: { legend: { position: 'right', labels: { color: '#8891a4', font: { size: 10 }, padding: 8 }}}
+    }
+  });
+
+  // Blink rate from events
+  blinkChartObj = new Chart(document.getElementById('blinkChart'), {
+    type: 'line',
+    data: { labels: earLabels, datasets: [{
+      label: 'Blinks', data: earData.map(e => e.blinks || 0),
+      borderColor: '#fbbf24', backgroundColor: 'rgba(251,191,36,0.07)',
+      tension: 0.4, pointRadius: 2, fill: true, borderWidth: 1.5
+    }]},
+    options: chartDefaults
+  });
+}
+
+/* ================================================================
+   CONTACTS
+================================================================ */
+function addContact() {
+  const name  = document.getElementById('c-name').value.trim();
+  const rel   = document.getElementById('c-rel').value.trim();
+  const phone = document.getElementById('c-phone').value.trim();
+  if (!name || !phone) { alert('Name and phone are required.'); return; }
+  const initials = name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+  const colors   = ['av-blue','av-green','av-coral'];
+  const cls      = colors[Math.floor(Math.random()*3)];
+  const card     = document.createElement('div');
+  card.className = 'contact-card';
+  card.innerHTML = `
+    <div class="avatar ${cls}">${initials}</div>
+    <div class="contact-info">
+      <div class="contact-name">${name}</div>
+      <div class="contact-rel">${rel||'—'}</div>
+      <div class="contact-phone"><i class="ti ti-phone" style="font-size:11px"></i> ${phone}</div>
+    </div>
+    <button class="btn-sm" onclick="this.closest('.contact-card').remove()">Remove</button>`;
+  document.querySelector('.contacts-list').appendChild(card);
+  ['c-name','c-rel','c-phone','c-email'].forEach(id => document.getElementById(id).value='');
+}
+
+/* ================================================================
+   TOGGLES
+================================================================ */
+function toggleEl(el) { el.classList.toggle('off'); }
+
+/* ================================================================
+   ALERT SOUNDS
+================================================================ */
+let selectedSound = 'beep';
+let soundVolume   = 0.7;
+
+function selectSound(el) {
+  document.querySelectorAll('.sound-opt').forEach(o => o.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedSound = el.dataset.sound;
+}
+
+document.getElementById('s-volume').addEventListener('input', function() {
+  soundVolume = this.value / 100;
+  document.getElementById('s-volume-val').textContent = this.value + '%';
+});
+
+function previewSound() { playAlarm(true); }
+
+function playAlarm(force) {
+  if (alarmPlaying && !force) return;
+  if (selectedSound === 'none') return;
+  alarmPlaying = true;
+  try {
+    const ctx  = new (window.AudioContext || window.webkitAudioContext)();
+    const gain = ctx.createGain();
+    gain.connect(ctx.destination);
+    gain.gain.setValueAtTime(soundVolume, ctx.currentTime);
+
+    if (selectedSound === 'beep') {
+      const osc = ctx.createOscillator();
+      osc.connect(gain);
+      osc.type = 'square'; osc.frequency.value = 880;
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
+      osc.start(); osc.stop(ctx.currentTime + 0.6);
+
+    } else if (selectedSound === 'siren') {
+      const osc = ctx.createOscillator();
+      osc.connect(gain);
+      osc.type = 'sawtooth'; osc.frequency.value = 400;
+      osc.frequency.linearRampToValueAtTime(900, ctx.currentTime + 0.8);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.9);
+      osc.start(); osc.stop(ctx.currentTime + 0.9);
+
+    } else if (selectedSound === 'pulse') {
+      [0, 0.25, 0.5].forEach(offset => {
+        const osc = ctx.createOscillator();
+        const g   = ctx.createGain();
+        osc.connect(g); g.connect(ctx.destination);
+        osc.type = 'square'; osc.frequency.value = 660;
+        g.gain.setValueAtTime(soundVolume, ctx.currentTime + offset);
+        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + offset + 0.15);
+        osc.start(ctx.currentTime + offset);
+        osc.stop(ctx.currentTime + offset + 0.15);
+      });
+
+    } else if (selectedSound === 'chime') {
+      [523, 659, 784].forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const g   = ctx.createGain();
+        osc.connect(g); g.connect(ctx.destination);
+        osc.type = 'sine'; osc.frequency.value = freq;
+        g.gain.setValueAtTime(soundVolume * 0.6, ctx.currentTime + i * 0.18);
+        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.18 + 0.4);
+        osc.start(ctx.currentTime + i * 0.18);
+        osc.stop(ctx.currentTime + i * 0.18 + 0.4);
+      });
+
+    } else if (selectedSound === 'buzz') {
+      const osc = ctx.createOscillator();
+      osc.connect(gain);
+      osc.type = 'sawtooth'; osc.frequency.value = 120;
+      gain.gain.setValueAtTime(soundVolume, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.0);
+      osc.start(); osc.stop(ctx.currentTime + 1.0);
+    }
+  } catch(e) {}
+  alarmTimeout = setTimeout(() => { alarmPlaying = false; }, 3000);
+}
+
+/* ================================================================
+   SETTINGS SLIDERS
+================================================================ */
+document.getElementById('s-ear-thresh').addEventListener('input', function() {
+  document.getElementById('s-ear-val').textContent = (this.value/100).toFixed(2);
+});
+document.getElementById('s-close-thresh').addEventListener('input', function() {
+  document.getElementById('s-close-val').textContent = this.value + ' s';
+});
+document.getElementById('s-conf-thresh').addEventListener('input', function() {
+  document.getElementById('s-conf-val').textContent = this.value + '%';
+});
+</script>
+</body>
+</html>
